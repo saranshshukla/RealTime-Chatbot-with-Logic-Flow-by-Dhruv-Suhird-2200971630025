@@ -34,6 +34,16 @@ def preprocess(text):
 def get_random_from_list(lst):
     return random.choice(lst) if lst else ""
 
+def append_emotion_emoji(response, emotion):
+    emoji = EMOTION_ICONS.get(emotion)
+    if not emoji:
+        return response
+        
+    if response.endswith(emoji):
+        response = response[:-len(emoji)]
+
+    return response.strip() + " " + emoji
+    
 def get_fact():
     return get_random_from_list(DIALOG_FLOW.get('knowledge_base', {}).get('facts', []))
 
@@ -105,23 +115,18 @@ def chat():
     user_msg = request.json.get('message', '')
     user_msg_clean = preprocess(user_msg)
 
-    # Check for a definition request (improved matching)
     def_word = extract_definition_word(user_msg_clean)
     if def_word:
         response = get_definition(def_word)
         emotion = "curious"
         followups = []
-        if emotion in EMOTION_ICONS:
-            emoji = EMOTION_ICONS[emotion]
-            response = re.sub(rf'(\s*{re.escape(emoji)})+$', '', response).rstrip()
-            response = f"{response} {emoji}"
+        response = append_emotion_emoji(response, emotion)
         return jsonify({
             'response': response,
             'emotion': emotion,
             'followups': followups
         })
 
-    # Check if user asks "tell me" or "give me" an activity or knowledge
     activity_key = parse_activity_from_message(user_msg_clean)
     if activity_key:
         if activity_key == "fact":
@@ -137,15 +142,13 @@ def chat():
             response = get_activity(activity_key)
             emotion = "neutral"
         followups = []
-        if emotion in EMOTION_ICONS:
-            response = f"{response} {EMOTION_ICONS[emotion]}"
+        response = append_emotion_emoji(response, emotion)
         return jsonify({
             'response': response,
             'emotion': emotion,
             'followups': followups
         })
 
-    # Standard dialog flow
     data = match_trigger(user_msg_clean)
 
     if data:
@@ -198,10 +201,7 @@ def chat():
         emotion = def_data['emotion']
         followups = def_data.get('followup', [])
 
-    if emotion in EMOTION_ICONS:
-        emoji = EMOTION_ICONS[emotion]
-        response = re.sub(rf'(\s*{re.escape(emoji)})+$', '', response).rstrip()
-        response = f"{response} {emoji}"
+    response = append_emotion_emoji(response, emotion)
 
     return jsonify({
         'response': response,
